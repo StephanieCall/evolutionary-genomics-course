@@ -1,0 +1,27 @@
+---
+title: "Stephanie's GitHub Page for Evolutionary Genomics and Bioinformatics"
+author: "Stephanie Call"
+output: html_document
+bibliography: data/references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Website repository for my lab reports and other files for the Evolutionary Genomics and Bioinformatics course in Fall 2020.
+
+## What I do
+
+![I enjoy rowing and racing in a single scull on the Connecticut River in Northampton. I've medalled in a few races since I started rowing at the Northampton Community Rowing Club](images/Rowing.JPG)
+ 
+![In my research, I am using CRIPSR interference to repress genes in bacteria to determine which are associated with cell attachment and biofilm formation](images/dCas9Binding.png)
+
+
+## Lab Reports
+* Lab 1: [Lab 1](Lab1_SNC.html)
+* Lab 2: [Lab 2](Lab2_SNC.html)
+
+All lab reports are written in R [@RCoreTeam].
+
+# REFERENCES

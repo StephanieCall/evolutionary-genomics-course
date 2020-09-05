@@ -1,0 +1,55 @@
+---
+title: "Lab 1"
+author: "Stephanie Call"
+date: "August 24, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercise 1
+
+```{r Ex1}
+x <- 3
+y <- 15
+# Sum
+x + y
+# Both differences since it's unspecified
+x - y
+y - x
+# Product
+x*y
+# Both quotients since it's unspecified
+x/y
+y/x
+```
+
+## Exercise 2
+
+```{r Ex2}
+x <- 2
+y <- 3
+# Test the logical function. Returns FALSE
+x^5 > y^4
+```
+
+## Exercise 3
+
+```{r Ex3}
+x <- c(22,62,148,43,129)
+sum(x) -> y
+# Sum
+y
+# Frequency of each value in vector
+x/y
+```
+
+## Exercise 4
+
+```{r Ex4}
+nt <- c('A', 'T', 'C', 'G')
+# Sort the nucleotides in alphabetical order
+sort(nt)
+```
