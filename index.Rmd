@@ -26,7 +26,7 @@ Website repository for my lab reports and other files for the Evolutionary Genom
 * Lab 4-COVID: [Lab 4-COVID](Lab4_COVID_SNC.html)
 * Lab 4-tutorial: [Lab 4-tutorial](Lab4_ggplot_tutorial_SNC.html)
 * Lab 5-COVID: [Lab 5-COVID](Lab5_COVID_SNC.html)
-
+* Lab 5-extra: [Lab 5-extra](Lab5_extra_SNC.html)
 
 All lab reports are written in R [@RCoreTeam].
 
