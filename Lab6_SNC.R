@@ -219,6 +219,7 @@ ggplotly(
 # with multiple Lat and Long points have on the plot
 daily_report <- read_csv('data/daily_report_09-26-2020.csv') %>% 
   rename(Long = 'Long_') %>% 
+  filter(Long != 'NA', Lat != 'NA') %>% 
   group_by(Country_Region) %>% 
   summarize(Confirmed = sum(Confirmed), Deaths = sum(Deaths), Lat = median(Lat), Long = median(Long))
 # Not sure what the question is asking, so I am going to try plotting each country 

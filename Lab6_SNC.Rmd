@@ -220,7 +220,7 @@ To demonstrate a more complex example, the following is an interactive graph of 
 ```{r worldDeathsInteractive, results = FALSE, fig.height=6, fig.width=9}
 # Here is an example with the world map -
 daily_report <- read_csv('data/daily_report_09-26-2020.csv') %>% 
-rename(Long = 'Long_') %>% 
+  rename(Long = 'Long_') %>% 
   group_by(Country_Region) %>% 
   summarize(Confirmed = sum(Confirmed), Deaths = sum(Deaths))
 
@@ -251,7 +251,7 @@ ggplotly(
 
 ## Exercise 1
 Summarize the counts for each country in the COVID-19 Deaths graph above and update the graph to 9/26/2020.
-Unfortunately, I am confused as to how this question is different from the interactive world map directly above since that one already uses the COVID-19 data for Deaths on 26 September 2020. Additionally, it never specifies what count to summarize. However, I did notice that the further explanation mentions using the mean/median latitude and longitude, so maybe it asks to graph the Deaths data as points on the world map. In that case, the following are interactive world maps of the COVID-19 deaths and then confirmed cases by 26 September 2020, where the color and size of the points indicate the relative number of deaths -
+The following are interactive world maps of the COVID-19 deaths and then confirmed cases (since the exercise doesn't specify which to plot) by 26 September 2020, where the color and size of the points indicate the relative number of deaths -
 
 ```{r EX1_deaths_point, fig.height=6, fig.width=9}
 # Read the 9/26/2020 daily report and summarize like before 
@@ -259,6 +259,7 @@ Unfortunately, I am confused as to how this question is different from the inter
 # with multiple Lat and Long points have on the plot
 daily_report <- read_csv('data/daily_report_09-26-2020.csv') %>% 
   rename(Long = 'Long_') %>% 
+  filter(Long != 'NA', Lat != 'NA') %>% 
   group_by(Country_Region) %>% 
   summarize(Confirmed = sum(Confirmed), Deaths = sum(Deaths), Lat = median(Lat), Long = median(Long))
 # Not sure what the question is asking, so I am going to try plotting each country 
@@ -296,34 +297,7 @@ ggplotly(
 )
 ```
 
-Unfortunately, some country's data are missing (including the US, Canada, UK, and France) because these countries don't have latitude and longitude coordinates in the daily report data from the repository. 
-
-I also noticed that the exercise explanation mentions using the data for the number of confirmed cases, so I have also created an interactive map based on the above filled style for the worldwide COVID-19 confirmed cases by 26 September 2020. I chose a different color palette to distinguish it from the map for COVID-19 deaths and have added a few more countries for a more complete graph - 
-
-```{r EX1_confirmed_fill, fig.height=6, fig.width=9}
-# Read in the world map data
-world <- as_tibble(map_data("world")) %>% 
-  mutate(region = str_replace_all(region, c("USA" = "US", "Czech Republic" = "Czechia",  
-                                          "Ivory Coast" = "Cote d'Ivoire",
-                                          "Democratic Republic of the Congo" = "Congo (Kinshasa)", 
-                                          "Republic of Congo" = "Congo (Brazzaville)",
-                                          'UK' = "United Kingdom",
-                                          "South Korea" = 'Korea, South',
-                                          'Taiwan' = 'Taiwan*')))
-# Join the COVID report data with the map data - 
-country_join <- left_join(world, daily_report, by = c('region' = 'Country_Region'))
-
-# Make the plot for confirmed cases
-ggplotly(
-  ggplot(world, aes(x = long, y = lat, text = region, group = group)) + # Make the text that pops up be the region names
-    coord_fixed(1.3) + 
-    # Add data layer
-    geom_polygon(data = country_join, mapping = aes(fill = Confirmed), color = 'black') +
-    scale_fill_gradientn(colours = wes_palette("Rushmore1", 100, type = "continuous")) +
-    labs(title = "COVID-19 Confirmed Worldwide by 26 September 2020") +
-    theme(plot.title = element_text(face = 'bold', hjust = 0.5))
-)
-```
+Unfortunately, some country's data are in the middle of the ocean because the latitude and longitude for the country is taken as the median of all states/provinces of these countries.
 
 
 ## Exercise 2
