@@ -1,0 +1,466 @@
+---
+title: "Lab6_SNC"
+author: "Stephanie Call"
+date: "10/5/2020"
+output: html_document
+bibliography: data/references.bib
+---
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(message = FALSE, echo = FALSE, warning = FALSE)
+```
+
+## Lab 6 - Data Maps and Interactive Graphs from the COVID-19 Reporting Data
+
+This report demonstrates the different map graphs that can be made to map data in R using various available packages, including ggplot2, ggplotly, maps, and mapdata to name a few. To do so, static and interactive graphs of worldwide COVID-19 data are created. These data are available from the Johns Hopkins University's GitHub repository for COVID-19 data (@COVID_Data).
+
+
+```{r import}
+# Import the packages we will need to make the maps 
+library(tidyverse)
+library(maps)
+library(mapdata)
+library(lubridate)
+library(viridis)
+library(wesanderson)
+```
+
+## Building Maps
+
+Data can be added to maps using the latitude and longitude location associated with each data point. These coordinates are used to locate each data point on a drawn map. The following examples use ggplot2's borders() function to define the scope and draw the borders of the map. 
+
+Data can be plotted to a world map as a scatterplot, using the size of each point as indication of the relative abundance of the variable. For example, this graph shows the worldwide number of confirmed COVID-19 cases on April 2, 2020 - 
+
+```{r worldConfirmed, fig.height=5, fig.width=8}
+# Import the data for the daily report from 2 April, 2020. Note that is is not summarized by country.
+# There are a lot of points for the US because of the information about US counties.
+
+daily_report <- read_csv('data/daily_report_04-02-2020.csv') %>% 
+                           rename(Long = "Long_") # Rename the Longitude variable to match that in the time series 
+# Graph on a world map with the size of the points corresponding to number of confirmed cases
+ggplot(daily_report, aes(x = Long, y = Lat, size = Confirmed/1000)) +
+  borders("world", colour = NA, fill = 'gray90') + # Note that the argument is colour, not color
+  theme_bw() +
+  geom_point(shape=21, color='purple', fill='purple', alpha = 0.5) +
+  labs(title = "World COVID-19 Confirmed Cases", x = '', y = '', size = "Cases (X1000)") +
+  theme(legend.position = 'right') +
+  coord_fixed(ratio=1.5)
+# Got a warning message that 54 rows were removed because they contained missing data 
+```
+
+The same can be done using a map of the US. The following is a plot of number of confirmed COVID-19 cases on April 5, 2020 in the US - 
+
+```{r USConfirmed_basic, fig.height=5, fig.width=8}
+daily_report <- read_csv('data/daily_report_04-05-2020.csv') %>% 
+  rename(Long = "Long_") %>% 
+  filter(Country_Region == 'US') %>% 
+  filter(!Province_State %in% c('Alaska', 'Hawaii', 'American Samoa',
+                                'Puerto Rico', 'Northern Mariana Islands',
+                                'Virgin Islands', 'Recovered', 'Guam', 'Grand Princess',
+                                'District of Columbina', 'Diamond Princess')) %>% 
+  filter(Lat > 0) #Filter out any data with Lat = 0
+ggplot(daily_report, aes(x = Long, y = Lat, size = Confirmed/1000)) +
+  borders('state', colour = 'black', fill = 'grey 90') +
+  theme_bw() +
+  geom_point(shape = 21, color = 'purple', fill = 'purple', alpha = 0.5) +
+  labs(title = 'COVID-19 Confirmed Cases in the US', x = '', y = '', size = "Cases (X1000)") +
+  theme(legend.position = 'right') +
+  coord_fixed(ratio = 1.5)
+```
+
+R contains a number of options and color palettes, including colorblind-friendly palettes, that can be used to create more beautiful graphs that map the data to both the size and color of the point. The following is a graph of the same US COVID-19 data as above except using a graph design by Anisa Dhane, who used the Viridis palette, a colorblind-friendly color gradient, and some other options - 
+
+```{r USConfirmed_viridis, fig.height=6, fig.width=8}
+mybreaks <- c(1, 100, 1000, 10000, 10000)
+ggplot(daily_report, aes(x = Long, y = Lat, size = Confirmed)) +
+  borders("state", colour = "white", fill = "grey90") +
+  geom_point(aes(x=Long, y=Lat, size=Confirmed, color=Confirmed),stroke=F, alpha=0.7) +
+  scale_size_continuous(name="Cases", trans="log", range=c(1,7), 
+                        breaks=mybreaks, labels = c("1-99",
+                                                    "100-999", "1,000-9,999", "10,000-99,999", "50,000+")) +
+  scale_color_viridis_c(option="viridis",name="Cases",
+                        trans="log", breaks=mybreaks, labels = c("1-99",
+                                                                 "100-999", "1,000-9,999", "10,000-99,999", "50,000+"))  +
+# Cleaning up the graph
+  
+  theme_void() + 
+  guides( colour = guide_legend()) +
+  labs(title = "Anisa Dhana's lagout for COVID-19 Confirmed Cases in the US") +
+  theme(
+    legend.position = "bottom",
+    text = element_text(color = "#22211d"),
+    plot.background = element_rect(fill = "#ffffff", color = NA), 
+    panel.background = element_rect(fill = "#ffffff", color = NA), 
+    legend.background = element_rect(fill = "#ffffff", color = NA)) +
+  coord_fixed(ratio=1.5)
+# Got some warning messages - transformation introduced infinite values in discrete y-axis,
+# sqrt(x) produced some NaNs, and 40 rows were removed due to missing data
+```
+
+
+## Mapping Data to Shapes
+
+Data can also be added to shapes on a drawn map (e.g., countries, states) by mapping the data to the name of the region. In R, this involves loading map data into memory that contains the names of the regions in the map, then joining the data to be plotted, which is associated with the same regions, into the same table. Oftentimes, the plotted data region's must be slightly formatted to match those in the map data for proper plotting. For these types of maps, the color of the fill of each shape typically indicates the relative abundance of the variable. These map data are taken from the map_data R package, which provides a wide range of regional data for creating maps, including the world, countries, and each US state.
+
+For example, the following is a map of the number of confirmed cases of COVID-19 in the contiguous US on April 2, 2020 mapped to the shapes of each state and colored using the Zissou1 gradient from the Wes Anderson palette -
+
+```{r stateConfirmedShapeMap,  fig.height=5, fig.width=8}
+# Again, read the daily report from April 2 and filter to US states
+daily_report <- read_csv('data/daily_report_04-02-2020.csv') %>% 
+  rename(Long = "Long_") %>% 
+  filter(Country_Region == "US") %>% 
+  group_by(Province_State) %>% 
+  summarize(Confirmed = sum(Confirmed)) %>% 
+  mutate(Province_State = tolower(Province_State)) # Makes all observations (states) lowercase to match map_data
+# Load the US map data
+us <- map_data('state')
+# We need to join the US map data with our daily report to make one data frame/tibble
+state_join <- left_join(us, daily_report, by = c('region' = 'Province_State'))
+# Plot state map with an R color palette
+ggplot(us, aes(x = long, y = lat, group = group)) + 
+  coord_fixed(1.3) +
+  # Add data layer
+  geom_polygon(data = state_join, aes(fill = Confirmed), color = 'black') +
+  scale_fill_gradientn(colours = wes_palette("Zissou1", 100, type = 'continuous'),
+                       trans = 'log10') +
+  labs(title = "COVID-19 Confirmed Cases in the US")
+```
+
+County map data can also be used to plot data, including on top of a larger map. For example, the following graphs plots the data for US COVID-19 confirmed cases on April 2, 2020 for each county on a map of the entire contiguous US - 
+
+```{r countyConfirmed, results = FALSE, fig.height=5, fig.width=8}
+library(RColorBrewer) # Import RColorBrewer
+# To display only colorblind-friendly brewer palettes, specify the option 
+# colorblindFriendly = TRUE as follows - 
+# display.brewer.all(colorblindFriendly = TRUE)
+
+# Get and format the COVID report data -
+report_03_27_2020 <- read_csv('data/daily_report_04-02-2020.csv') %>% 
+  rename(Long = "Long_") %>%
+  unite(Key, Admin2, Province_State, sep = '.') %>% # Make a key for the county data (Admin2)
+  group_by(Key) %>% 
+  summarize(Confirmed = sum(Confirmed)) %>% 
+  mutate(Key = tolower(Key))
+dim(report_03_27_2020) # 2390 observations, 2 variables
+# Get and format the map data
+us <- map_data('state')
+counties <- map_data('county') %>% 
+  unite(Key, subregion, region, sep = '.', remove = FALSE)
+# Join the two tibbles
+state_join <- left_join(counties, report_03_27_2020, by = c('Key'))
+sum(is.na(state_join$Confirmed)) # Check how many entries are NA - 21617
+ggplot(us, aes(x = long, y = lat, group = group)) +
+  coord_fixed(1.3) +
+  # Add the COVID-19 data layer 
+  borders('state', colour = 'black') +
+  geom_polygon(data = state_join, aes(fill = Confirmed)) +
+  scale_fill_gradientn(colors = brewer.pal(n = 5, name = 'PuRd'),
+                       breaks = c(1, 10, 100, 1000, 10000, 100000),
+                       trans = 'log10', na.value = 'White') +
+  ggtitle("Number of Confirmed Cases by US County") +
+  theme_bw()
+```
+
+For this map, the PuRd palette from RColorBrewer is used to create a simple color gradient. RColorBrewer provides a wide range of different color palettes to choose from, including single-color and multi-color gradients and colorblind-friendly options, that can be used to create effective maps. 
+
+County map data can be made for single states as well. The following map shows the number of confirmed cases in each Massachusetts county on April 2, 2020 -
+
+```{r massConfirmed, fig.height=5.2, fig.width=8}
+# Looking at just Massachusetts - 
+daily_report <-   read_csv('data/daily_report_04-02-2020.csv') %>% 
+  rename(Long = "Long_") %>% 
+  filter(Province_State == "Massachusetts") %>% 
+  group_by(Admin2) %>% 
+  summarize(Confirmed = sum(Confirmed)) %>% 
+  mutate(Admin2 = tolower(Admin2)) # Again, Admin2 is the county information
+us <- map_data('state')
+ma_us <- subset(us, region == 'massachusetts')
+counties <- map_data('county')
+ma_county <- subset(counties, region == 'massachusetts')
+state_join <- left_join(ma_county, daily_report, by = c('subregion' = 'Admin2'))
+# Plot the MA county data 
+ggplot(ma_county, aes(x = long, y = lat, group = group)) +
+  coord_fixed(1.3) +
+  # Add the data layer
+  geom_polygon(state_join, mapping = aes(fill = Confirmed), color = 'white') +
+  scale_fill_gradientn(colors = brewer.pal(n = 5, name = 'BuGn'),
+                       trans = 'log10') +
+  labs(title = 'COVID-19 Confirmed Cases in Massachusetts')
+```
+
+Note that the Nantucket and Dukes counties were reported together in the COVID-19 data and 303 confirmed cases were unassigned, so these data are not included in the graph.
+
+
+## Interactive Graphs
+
+Interactive graphs can be made using plotly with map graphs. Like interactive scatterplots, bar graphs, or line graphs, these interactive maps can be manipulated (i.e., zoomed in/out, panned around), and exact data can be seen by hovering over a point or shape on the map. For example, the following graph is the same Massachusetts county data for COVID-19 confirmed cases on April 2, 2020 except made with an interactive graph and using a different color palette (Zissou1 from Wes Andersone palette) - 
+
+```{r massConfirmedInteractive, fig.height=5.5, fig.width=8}
+# Import plotly
+library(plotly)
+# Now plot the same MA county data but with an interactive plot and with a different color palette
+ggplotly(
+  ggplot(ma_county, aes(x = long, y = lat, group = group)) +
+  coord_fixed(1.3) +
+  # Add the data layer
+  geom_polygon(data = state_join, mapping = aes(fill = Confirmed), color = 'black') +
+  scale_fill_gradientn(colours = wes_palette('Zissou1', 100, type = 'continuous')) +
+  ggtitle("COVID-19 Cases in MA") +
+  # Clean up the graph
+  labs(x = NULL, y = NULL) +
+  theme(panel.border = element_blank(), 
+        panel.background = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.text = element_blank())
+)
+```
+
+To demonstrate a more complex example, the following is an interactive graph of the worldwide deaths from COVID-19 by country as of September 26, 2020 - 
+
+```{r worldDeathsInteractive, results = FALSE, fig.height=6, fig.width=9}
+# Here is an example with the world map -
+daily_report <- read_csv('data/daily_report_09-26-2020.csv') %>% 
+rename(Long = 'Long_') %>% 
+  group_by(Country_Region) %>% 
+  summarize(Confirmed = sum(Confirmed), Deaths = sum(Deaths))
+
+# Read in the world map data
+world <- as_tibble(map_data("world"))
+
+# Check to see if there are differences in the naming of the countries
+setdiff(world$region, daily_report$Country_Region)
+# Many of the differences are considered states or territories in the JHU COVID reports,
+# but let's fix a few of them 
+world <- as_tibble(map_data('world')) %>% 
+  mutate(region = str_replace_all(region, c("USA" = "US", "Czech Republic" = "Czechia",  
+                                            "Ivory Coast" = "Cote d'Ivoire", "Democratic Republic of the Congo" = "Congo (Kinshasa)", 
+                                            "Republic of Congo" = "Congo (Brazzaville)")))
+# Join the COVID report data with the map data - 
+country_join <- left_join(world, daily_report, by = c('region' = 'Country_Region'))
+# Create the graph
+ggplotly(
+  ggplot(world, aes(x = long, y = lat, text = region, group = group)) + # Make the text that pops up be the region names
+    coord_fixed(1.3) + 
+    # Add data layer
+    geom_polygon(data = country_join, mapping = aes(fill = Deaths), color = 'black') +
+    scale_fill_gradientn(colours = wes_palette("Zissou1", 100, type = "continuous")) +
+    labs(title = "COVID-19 Deaths")
+)
+```
+
+
+## Exercise 1
+Summarize the counts for each country in the COVID-19 Deaths graph above and update the graph to 9/26/2020.
+Unfortunately, I am confused as to how this question is different from the interactive world map directly above since that one already uses the COVID-19 data for Deaths on 26 September 2020. Additionally, it never specifies what count to summarize. However, I did notice that the further explanation mentions using the mean/median latitude and longitude, so maybe it asks to graph the Deaths data as points on the world map. In that case, the following are interactive world maps of the COVID-19 deaths and then confirmed cases by 26 September 2020, where the color and size of the points indicate the relative number of deaths -
+
+```{r EX1_deaths_point, fig.height=6, fig.width=9}
+# Read the 9/26/2020 daily report and summarize like before 
+# Additionally, I have chosen to use the median Lat and Long to make sure the countries
+# with multiple Lat and Long points have on the plot
+daily_report <- read_csv('data/daily_report_09-26-2020.csv') %>% 
+  rename(Long = 'Long_') %>% 
+  group_by(Country_Region) %>% 
+  summarize(Confirmed = sum(Confirmed), Deaths = sum(Deaths), Lat = median(Lat), Long = median(Long))
+# Not sure what the question is asking, so I am going to try plotting each country 
+# on a world map where the size and color of the point corresponds to Deaths. 
+# I'll be using the borders() function to make the borders of the world map. 
+
+ggplotly(
+  ggplot(daily_report, aes(x = Long, y = Lat, text = Country_Region, size = Deaths/1000)) +
+    borders('world', fill = 'grey90', colour = 'black') +
+    coord_fixed(1.3) +
+    geom_point(mapping = aes(x = Long, y = Lat, size = Deaths/1000, color = Deaths/1000), shape = 16, alpha =0.7) +
+    theme_classic() +
+    scale_color_viridis_c(option = 'inferno', name = 'Deaths (X1000)') +
+    labs(title = "COVID-19 Deaths Worldwide by 26 September 2020", x = '', y = '') +
+    theme(axis.text = element_blank(),
+          plot.title = element_text(hjust = 0.5, size = 16, face = 'bold'),
+          axis.ticks = element_blank(),
+          axis.line = element_blank())
+)
+```
+
+```{r EX1_confirmed_point, fig.height=6, fig.width=9}
+ggplotly(
+  ggplot(daily_report, aes(x = Long, y = Lat, text = Country_Region, size = Confirmed/1000)) +
+    borders('world', fill = 'grey90', colour = 'black') +
+    coord_fixed(1.3) +
+    geom_point(mapping = aes(x = Long, y = Lat, size = Confirmed/1000, color = Confirmed/1000), shape = 16, alpha =0.7) +
+    theme_classic() +
+    scale_color_viridis_c(option = 'viridis', name = 'Confirmed (X1000)') +
+    labs(title = "COVID-19 Confirmed Worldwide by 26 September 2020", x = '', y = '') +
+    theme(axis.text = element_blank(),
+          plot.title = element_text(hjust = 0.5, size = 16, face = 'bold'),
+          axis.ticks = element_blank(),
+          axis.line = element_blank())
+)
+```
+
+Unfortunately, some country's data are missing (including the US, Canada, UK, and France) because these countries don't have latitude and longitude coordinates in the daily report data from the repository. 
+
+I also noticed that the exercise explanation mentions using the data for the number of confirmed cases, so I have also created an interactive map based on the above filled style for the worldwide COVID-19 confirmed cases by 26 September 2020. I chose a different color palette to distinguish it from the map for COVID-19 deaths and have added a few more countries for a more complete graph - 
+
+```{r EX1_confirmed_fill, fig.height=6, fig.width=9}
+# Read in the world map data
+world <- as_tibble(map_data("world")) %>% 
+  mutate(region = str_replace_all(region, c("USA" = "US", "Czech Republic" = "Czechia",  
+                                          "Ivory Coast" = "Cote d'Ivoire",
+                                          "Democratic Republic of the Congo" = "Congo (Kinshasa)", 
+                                          "Republic of Congo" = "Congo (Brazzaville)",
+                                          'UK' = "United Kingdom",
+                                          "South Korea" = 'Korea, South',
+                                          'Taiwan' = 'Taiwan*')))
+# Join the COVID report data with the map data - 
+country_join <- left_join(world, daily_report, by = c('region' = 'Country_Region'))
+
+# Make the plot for confirmed cases
+ggplotly(
+  ggplot(world, aes(x = long, y = lat, text = region, group = group)) + # Make the text that pops up be the region names
+    coord_fixed(1.3) + 
+    # Add data layer
+    geom_polygon(data = country_join, mapping = aes(fill = Confirmed), color = 'black') +
+    scale_fill_gradientn(colours = wes_palette("Rushmore1", 100, type = "continuous")) +
+    labs(title = "COVID-19 Confirmed Worldwide by 26 September 2020") +
+    theme(plot.title = element_text(face = 'bold', hjust = 0.5))
+)
+```
+
+
+## Exercise 2
+Update Anisa Dhana's graph layout of the US to 9/26/2020. 
+For this case, because the number of cases has increased tremendously over the past six months, I adjusted the scale of the size and color for each point from a log scale to a linear scale. Otherwise, the points are overlapping far too much.
+
+```{r EX2, fig.height=6, fig.width=8}
+daily_report <- read_csv('data/daily_report_09-26-2020.csv') %>% 
+  rename(Long = 'Long_') %>% 
+  filter(Country_Region == "US", Lat > 0) %>% 
+  filter(!Province_State %in% c("Alaska","Hawaii", "American Samoa",
+                                "Puerto Rico","Northern Mariana Islands", 
+                                "Virgin Islands", "Recovered", "Guam", "Grand Princess",
+                                "District of Columbia", "Diamond Princess"))
+mybreaks2 <- c(1, 1000, 10000, 100000, 250000)
+ggplot(daily_report, aes(x = Long, y = Lat, size = Confirmed)) +
+  borders('state', colour = 'white', fill = 'grey90') +
+  geom_point(aes(x = Long, y = Lat, size = Confirmed, color = Confirmed), stroke = F, alpha = 0.7) +
+  scale_size_continuous(name = 'Cases', range=c(1,7),
+                        breaks = mybreaks2,labels = c("1-999",
+                        "1,000-9,999", "10,000-99,999", "100,000-249,999", '250,000+'))  +
+  scale_color_viridis_c(option='viridis', name="Cases",
+                        breaks = mybreaks2, labels = c("1-999",
+                        "1,000-9,999", "10,000-99,999", "100,000-249,999", '250,000+'))  +
+  # Clean up the graph
+  theme_void() +
+  guides(colour = guide_legend()) +
+  labs(title = "Anisa Dhana's style layout for COVID-19 Confirmed Cases in the US by 26 September 2020") +
+  theme(legend.position = 'bottom', 
+        text = element_text(color = "#22211d"),
+        plot.background = element_rect(fill = "#ffffff", color = NA), 
+        panel.background = element_rect(fill = "#ffffff", color = NA), 
+        legend.background = element_rect(fill = "#ffffff", color = NA),
+        plot.title = element_text(hjust = 0.5)) +
+  coord_fixed(ratio=1.5)
+# Learned that if you make the breaks higher than the highest data value, the break 
+# won't appear in the plot
+```
+
+
+## Exercise 3
+Update the "Number of Confirmed Cases by US County" graph to 9/26/2020 and use a different color scheme and/or theme.
+I have chosen to use the Greys color scheme from RColorBrewer with the classic theme - 
+
+```{r EX3, results = FALSE, fig.height=5.5, fig.width=8}
+# Extract and summarize the county data
+daily_report_county <- read_csv('data/daily_report_09-26-2020.csv') %>% 
+  rename(Long = 'Long_') %>% 
+  filter(Country_Region == "US") %>% 
+  unite(Key, Admin2, Province_State, sep = '.') %>% # Recall that Admin2 is the county
+  group_by(Key) %>% 
+  summarize(Confirmed = sum(Confirmed)) %>% 
+  mutate(Key = tolower(Key))
+# Get the map data for US counties
+us <- map_data('state')
+counties <- map_data('county') %>% 
+  unite(Key, subregion, region, sep = '.', remove = FALSE)
+# Join the two tibbles for to later graph
+county_join_Sep <- left_join(counties, daily_report_county, by = c("Key"))
+sum(is.na(county_join_Sep$Confirmed)) # Many don't have data, but we will continue anyways
+ggplot(us, aes(x = long, y = lat, group = group)) +
+  coord_fixed(1.3) +
+  # Add the COVID data layer
+  borders('state', colour = 'black') +
+  geom_polygon(data = county_join_Sep, aes(fill = Confirmed)) +
+  scale_fill_gradientn(colors = brewer.pal(n = 5, name = 'Greys'),
+                       breaks = c(1, 10, 100, 1000, 10000, 100000),
+                       trans = 'log10', na.value = 'White') + # Keeping no data white
+  ggtitle('Number of Confirmed Cases by US County by 26 September 2020') +
+  theme_classic()
+```
+
+
+## Exercise 4
+Make an interactive plot of a state of your choosing using a theme different from the above examples.
+I have chosen to display COVID-19 data from Washington since it was the location of the first recorded case in the US. Out of curiosity, I have chosen to plot the number of deaths and confirmed cases by 26 September, 2020. I have chosen different color palettes for each to easily distinguish the two, with Viridis cividis and plasma for the number of deaths and confirmed cases, respectively.
+
+```{r EX4_deaths, fig.height=6, fig.width=8}
+# First, extract the data for Washington from the map data for the US (country and county)
+washington_state <- map_data('state') %>% 
+  subset(region == 'washington')
+washington_counties <- map_data('county') %>% 
+  subset(region == 'washington')
+
+# Now, extract the data for Washington counties from the daily report data for 9/26/2020
+washington_report <- read_csv('data/daily_report_09-26-2020.csv') %>% 
+  rename(Long = 'Long_') %>% 
+  filter(Country_Region == "US", Province_State == 'Washington') %>% 
+  group_by(Admin2) %>% 
+  summarize(Confirmed = sum(Confirmed), Deaths = sum(Deaths), Active = sum(Active)) %>% 
+  mutate(Admin2 = tolower(Admin2))
+  
+# Join the tibbles for the county data with the report data - 
+washington_counties_joined <- left_join(washington_counties, washington_report, by = c('subregion' = 'Admin2'))
+
+# Now, plot the data into a ggplotly interactive graph -
+ggplotly(
+  ggplot(washington_counties, aes(x = long, y = lat, group = group, text = subregion)) +
+    coord_fixed(1.5) +
+    # Add the Washington data 
+    geom_polygon(data = washington_counties_joined, mapping = aes(fill = Deaths)) +
+    scale_fill_viridis(option = 'cividis', name = 'Deaths', 
+                       breaks = c(200, 400, 600, 800)) +
+    # Adjust the look of the graph to make it look better
+    labs(title = 'COVID-19 Deaths in WA by 26 September 2020', x = '', y = '') +
+    theme(plot.title = element_text(size = 15, hjust = 0.5, face = 'bold'),
+        axis.ticks = element_blank(),
+        axis.text  = element_blank(),
+        panel.background = element_blank())
+)
+```
+
+```{r EX4_confirmed, fig.height=6, fig.width=8}
+# Because I am interested, here is the same map for the Confirmed Cases data with 
+# a different scale and color scheme
+
+# Confirmed cases - 
+ggplotly(
+  ggplot(washington_counties, aes(x = long, y = lat, group = group, text = subregion)) +
+    coord_fixed(1.5) +
+    # Add the Washington data 
+    geom_polygon(data = washington_counties_joined, mapping = aes(fill = Confirmed)) +
+    scale_fill_viridis(option = 'plasma', name = 'Confirmed', 
+                       breaks = c(1000, 5000, 10000, 15000, 20000)) +
+    # Adjust the look of the graph to make it look better
+    labs(title = 'COVID-19 Confirmed Cases in WA by 26 September 2020', x = '', y = '') +
+    theme(plot.title = element_text(size = 15, hjust = 0.5, face = 'bold'),
+          axis.ticks = element_blank(),
+          axis.text  = element_blank(),
+          panel.background = element_blank())
+)
+```
+
+
+## Exercise 5
+Create a Lab report made to be easily readable by others (friends, family), including hiding warnings, messages, and even code. Include references and a link to the Lab 6 report from your GitHub site. 
+I have created this entire report following this guideline. If one wants to view the code used to create this report, the RMarkdown file can be found on my GitHub repository (Lab6_SNC.Rmd).
+
+
+## References
