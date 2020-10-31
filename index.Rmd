@@ -29,6 +29,9 @@ Website repository for my lab reports and other files for the Evolutionary Genom
 * Lab 5-extra: [Lab 5-extra](Lab5_extra_SNC.html)
 * Lab 6: [Lab 6](Lab6_SNC.html)
 * Lab 7: [Lab 7](Lab7_SNC.html)
+* Lab 8: [Lab 8](Lab8_SNC.html)
+* Lab 9: [Lab 9](Lab9_SNC.html)
+* Lab 9-extra: [Lab 9x](Lab9x_SNC.html)
 
 All lab reports are written in R [@RCoreTeam].
 
