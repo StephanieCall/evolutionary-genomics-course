@@ -1,0 +1,338 @@
+---
+title: "Lab9x_SNC"
+author: "Stephanie Call"
+date: "10/30/2020"
+output: html_document
+bibliography: data/references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+condition = 1
+```
+
+This report is created from R Programming for Data Science (@R_Programming_for_Data_Science_Peng), R for Data Science (@R_for_Data_Science), and parts of the materials from Thomas Girke's course on Data Analysis in Genome Biology (@Data_Analysis_in_Genome_Biology).
+
+# Control Structures
+
+Control structures in R allow logic to be added to R code to allow decisions to be made based on the input to change the analysis of the input. The most common control structures are - 
+
+if-else statements - test the input for a condition(s) and act depending on the condition(s)
+
+for loops - execute a loop for a fixed number of times
+
+while loops - execute a loop while a specified condition(s) is true
+
+Usually, in R at least, these control structures aren't used in interactive sessions but rather in writing functions, workflows, or longer expressions. 
+
+
+# Conditional Statements with if-else
+
+The if-else statement is likely the most common control structure used in R and perhaps any programming language. As stated earlier, it allows you to test a condition and act upon it depending on if the condition is true or false.
+
+The simplest is just a single if statement.
+
+```r
+if(condition) {
+  # Do something
+}
+# Rest of the code
+```
+Example - 
+
+```{r if_only_ex}
+set.seed(50)
+x <- runif(1,0,10) # Choose a number at random
+x
+if(x > 5) {
+  print('x is greater than 3')
+}
+```
+
+If the above condition is not met, then nothing happens. If you want something to happen if the condition is false, you need to add an else clause.
+
+```r
+if(<condition>) {
+  # Do something
+} else {
+  # Do something else
+}
+# Rest of the code
+```
+
+The start of the else should be on the same line as the end of the last bracket of the if clause. If it is on the next line, you will get an error. Example of an if statement with an else clause - 
+
+``` {r if_else_ex}
+set.seed(30) # Set a different seed
+y <- rnorm(1, 10, 1) # Choose from a normal distribution this time for fun
+y
+if(y > 10) {
+  writeLines('y is greater than 10, the mean of the normal distribution.')
+} else {
+  writeLines('y is less than 10, the mean of the normal distribution.')
+}
+```
+
+To evaluate a series of (ideally) mutually-exclusive conditions, you can add an else-if clause between the if and else clauses. It should be formatted in the same way as the else statement, as in start on the same line as the last bracket of the if clause. 
+
+```r
+if(<condition1>) {
+  # Do something
+} else if (<condition2>) {
+  # Do something else
+} else {
+  # Do something else else
+}
+# Rest of the code
+```
+Example -  
+
+```{r else-if_example}
+set.seed(100)
+z <- rexp(1, 1) # This time choose a random number from an exponential distribution
+z
+if(z < 0.5) {
+  writeLines('z is less than 0.5')
+} else if(z >= 0.5 & z <= 1) {
+  writeLines('z is between 0.5 and 1, inclusive')
+} else {
+  writeLines('z is greater than 1')
+}
+```
+
+Note that the ampersand must be used for 'and' logic, unlike Python. Also note that it is possible to put multiple conditions in a single condition statement (the else-if clause above). 
+
+Here is an example of a valid if/else structure. To deviate from the tutorial code, I changed x from a single number to a 2-member vector and required that both elements be greater than 5 to determine the value of y. I also changed the maximum number to randomly choose each element of x from 10 to 15 (and changed the potential maximum value of y from 10 to 15).
+
+```{r tutorial_example}
+# Generate a uniform random number
+x <- runif(2, 0, 15)
+if(x[1] > 5 & x[2] > 5) {
+  y <- 15
+} else {
+  y <- 0
+}
+writeLines(sprintf('The value of x is [%.2f, %.2f] and the value of y is %.2f', 
+                   x[1], x[2], y))
+```
+
+## Important Operators
+
+These are important operators for creating conditional logic statements in R. They are the same as Python, except you can't write out the logical operators (and, or, not) in R but you can in Python.
+
+### Comparison operators
+* == is equal. Don't forget the two equal signs
+* != is not equal
+* \> is greater than
+* \>= is greater than or equal to
+* < is less than
+* <= is less than or equal to
+
+### Logical operators
+* & is and
+* | is or
+* ! is not 
+
+
+## for Loops
+
+For loops are typically the only looping structure need in R and is certainly the most common. In R, a for loop takes a iterator variable and assigns it successive values from the sequence or vector to run the loop code for each value. They are most often used for iterating over elements of an object (like a list, vector, sequence, etc.)
+
+```{r for_loop_ex}
+for(i in seq(1, 10, by=0.5)) {
+  print(i)
+}
+```
+
+This basic for loop take the i variable and gives it the values 1, 1.5, 2, ... 10 and executes the code inside the for loop clause (the curly brackets) for each iteration, then exits the loop. The next three loops all have the same behavior. THe first explicitly specifies the number of iterations by creating a sequence using the colon shorthand.
+
+```{r for_1}
+x <- c('aardwolf', 'bandicoot', 'capybara', 'dik-dik deer', 'egret')
+for(i in 1:5) {
+  # Print out each element of x
+  print(x[i])
+}
+```
+
+The second uses the seq_along() function, which makes a sequence long enough for each element in the input iterable. This allows for easy for loops that iterate over all elements in the input object. Also, this is equivalent to Python's range(0, len(x)-1).
+
+```{r for_2}
+for(i in seq_along(x)) {
+  print(x[i])
+}
+```
+
+The third uses a non-index-type variable and the 'in' operator to iterate over all elements in the input iterable.
+
+```{r for_3}
+for (animal in x) {
+  print(animal)
+}
+```
+
+Finally, for one line loops, curly brackets aren't necessary. However, they are recommended so that if you want to expand the for loop and add more lines, you won't forget the curly brackets and get an error.
+
+```{r for_one_line}
+for(i in 1:5) print(x[i])
+```
+
+
+# Nested for loops
+
+for loops can also be nested inside of each other simply by putting another for loop in the curly brackets of the higher for loop.
+
+```{r nested_for_loops}
+x <- matrix(1:12, 3, 4) # Note that this fills the matrix along the columns
+# Print along the rows (horizontally)
+for(i in seq_len(nrow(x))) {
+  for(j in seq_len(ncol(x))) {
+    print(x[i, j]) 
+  }
+}
+```
+
+Nested loops are commonly needed for multidimensional or hierarchical data structures, like lists and matrices. However, if there are too many nested loops, the code can be difficult to read and/or understand. If this happens, you may want to break up the loops using functions.
+
+# while Loops
+
+As stated earlier, while loops execute their code while a condition is true. They begin by testing for the condition. If true, the code in the loop's body is executed; otherwise, the body code is skipped and the rest of the code after the loop is executed. Once the body's code is executed, the condition is tested again. The cycle continues until the condition is false. For example, 
+
+```{r while_loop_basic}
+count <- 2
+while (count < 5000) {
+  print(count)
+  count <- count*2
+}
+```
+
+While loops can easily lead to infinite loops if not written properly, so be careful when designing and testing them. If an infinite loop occurs, the code execution can be halted using Ctrl+C.
+
+Multiple conditions can also be tested in a single while loop (or if-else statement, too). 
+```{r while_multi_condition}
+z <- 5
+set.seed(10)
+while(z >= 2 && z <= 8) {
+  coin <- rbinom(1, 1, 0.5) # Random binomial, picking evenly between 0 and 1 
+  print(z)
+  if(coin == 1) {  # random walk, chosen by random binomial trials
+    z <- z + 0.5
+  } else {
+    z <- z - 0.5
+  } 
+}
+sprintf('The final value of z is %.1f.', z)
+```
+
+Note that the conditions are always evaluated from left to right, so that if the first conditions fails, then the second isn't evaluated. This may be handy to increase processing speed when writing code to evaluate a lot of input data - putting the main filtering condition (the one that will filter the data the most) first may increase execution speed. 
+
+
+# Functions
+
+Functions are often used to encapsulate expressions that need to be executed numerous times, perhaps under slightly different conditions (that can be adjusted via their arguments). Functions are also often written when code must be shared with other or the public. 
+
+Functions also allow a developer to create an interface to the code via a specified set of parameters (arguments). This provides an abstraction of the code to any potential users, simplifying the execution of that functions code since the user doesn't need to know every detail about how the code operates. Additionally, the interface allows the developer to communicate to the user the most important or relevant aspects of the function's code. 
+
+
+# Functions in R
+
+Functions in R are first class objects, meaning they can be treated much like any other R object. Importantly, this means that functions can be passed as arguments in otehrs functions and can be nested in other functions. This second aspect can come in very handy when creating complex functions.
+
+
+# Your First Function
+
+Functions are defined using the function() directive and are stored as R objects like any other R object. They are specifically of the 'function' class in R. 
+
+Here is a simply blank function that does nothing except define the object as a function.
+
+```{r define_function}
+f <- function() {
+  # Empty function that doesn't do anything right now
+}
+# Check that the class of f is a function
+class(f)
+# Now exectute the function to see what happens
+f()
+```
+
+Now, we will create a function with an actual non-trivial function body (code). I've decided to make one that prints the exponents of 2 to the console, starting with 2^0.
+
+```{r function_no_arg}
+f <- function() {
+  print(2^0)
+}
+f()
+```
+
+The last aspect of a basic function is the function arguments, which are the specified options that the user can explicitly set to change the function's execution. For this basic function, I've added an argument for the final exponent to raise 2 to in the sequence of exponents printed to the console.
+
+```{r function_arg}
+f <- function(num) {
+  for (i in 0:num) {
+    print(2^i)
+  }
+}
+f(4)
+```
+
+In general, if you are doing a lot of cutting and pasting in your code, it's a good sign that you should write a function for that code. This will also decrease the chance of making an error when cutting and pasting all that code. Oftentimes, unlike the function above, a function can return something that can be fed into another section of code. 
+
+This next function returns the sum of all the exponents that were specified and printed to the console.
+
+```{r function_return}
+f <- function(num) {
+  sum_exp <- 0
+  for (i in 0:num) {
+    print(2^i)
+    sum_exp <- sum_exp + 2^i
+  }
+  sum_exp
+}
+summed_exp <- f(4)
+print(summed_exp)
+```
+
+Unlike Python, R doesn't require anything special for the function to return a value. Instead, R returns the value of the function as the very last expression that is evaluated (sum_exp above).
+
+However, there is a return() function that can be used to explicitly return a value from a function, but it is rarely used in R. Recall, in Python, that the return statement is required at the end of a function definition to return a value/values.
+
+Finally, in the above functions, the user must specify the value for the argument num. If it isn't specified, an error will occur.
+
+```{r function_error, error = TRUE}
+f()
+```
+
+We can change this behavior by specifying a default value for the argument by using '=' to explicitly state a default value in the function definition. Any argument can have a default value, which can be useful for arguments that are rarely modified. This relieves the user from having to specify the value of the argument every time the function is called. 
+
+For example, specify the default value for the above function to 3 so that if the function is called with no arguments, it will print the exponents of 2 up to 8.
+
+```{r function_default_vals}
+f <- function(num = 3) {
+  sum_exp <- 0
+  for (i in 0:num) {
+    print(2^i)
+    sum_exp <- sum_exp + 2^i
+  }
+  sum_exp
+}
+f()
+# Can still specify values
+f(6)
+```
+
+Through this short tutorial, we have written a function that 
+* has one formal argument (num) with a default value of 3. Formal arguments are arguments included in the function definition. The formals() function returns a list of all formal arguments of a function.
+* prints the exponents of 2 to the console up to the specified exponent.
+* returns (and prints) the sum of all exponents of 2 up to the specified exponent.
+
+Named arguments (which are defined upon function definition) can optionally have default values. Additionally, because they are named, they can explicitly specified by name when calling the function, and when there are multiple named arguments, they can be specified in any order (by name only). 
+
+```{r function_named_argument}
+f(num = 5)
+```
+
+
+# Looping on the Command Line using apply family in R base or purrr in Tidyverse
+
+Writing loops is useful when programming but not particularly easy when working interactively on the command line. The family of apply functions, which is from R's base package, includes apply, sapply, vapply, mapply, rapply, and tapply. This family of functions allow for easy manipulation of slices of data from matrices, arrays, lists, and data frames in repetitive ways. In Tidyverse, equivalent functions are covered by purrr. Both of these families of functions are designed to avoid explicit use of loop structures. The act on an input list, matrix, or array and apply a named function with one or more optional arguments to each element. See their respective documentation for more details.
+
+# References
