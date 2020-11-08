@@ -1,0 +1,466 @@
+---
+title: "Lab10_SNC"
+author: "Stephanie Call"
+date: "11/2/2020"
+output: html_document
+bibliography: data/references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This tutorial is derived from the Grunwald Lab's R workshop/primer called "Population genetics and genomics in R", specifically the sections "Novel tools in R for population genomic analyses," "Reading VCF data," and "Analysis of genomie data" (@Grunwald_pop_genomics_workshop). This workshop was written by BJ Knaus, FJ Tabima, and NJ Grünwald. Additionally, all proper citations to references can be found at this workshop. 
+
+# Novel tools in R for population genomics
+
+In this new era of high throughput sequencing (HTS) and the large data sets that are created from HTS, we need new methods for analyzing these data. There are two major factors contributing to this need - the data are often in genome-wide context (location in the genome is known and part of the analysis) and the number of variants between samples is very large. 
+
+R is a good tool for such analysis of population genomic data. There are many packages available in R that allow for standardized and easy analysis of these different data sets. For this tutorial, we will be focusing on VCF data formats and SNP data analysis.
+
+# Part I - Reading VCF data
+
+Genetic varaition data is usually kept in a variant call format (VCF) file format (Danecek, et al., 2011), where only the variants (like SNPs, indels, etc.) from a reference genome are recorded for each sample. This is ideal for very large data sets that may be produced from genome sequencing or high throughput sequencing, especially if many samples are sequenced, because of the relatively small file size compared to a file format that may include invariant data between all samples. The variant callers typically pick out the variants aggressively with the assumption that downstream quality control will pick out the low quality variants. The VCF file format, although standardized, allows for some variation when created, so different variant callers may report different information. To begin working with population data in this format, we will first go through the file format to understand its layout.
+
+## VCF file structure
+
+A VCF file has three main sections - the vcf header, a fix region, and a gt (genotype) region. Note that once read into memory, each section in the VCF file is called using the @ symbol instead of the $ symbol that is used for data frames and tibbles. 
+
+The VCF meta data region is at the top of the file and contains the metadata describing the body of the file. Each VCF meta line begins with '##'. The information included in this region includes the VCF file format version, definitions and descriptions for abbreviations/acronyms used elsewhere in the file, and possibly the software and software parameters used to create the file.
+
+Below the meta data, the data are tabular. The first eight columns detail the same information (the fixed region) about all the variants (e.g., SNPs, indels) that are processed for each sample, such as chromosomal position, reference genotype, alternate genotype, quality metrics, etc. This region is required in a VCF file, and subsequent columns are optoinal but common. 
+
+Beginning at column ten, there is a column for each sample (the genotype region, for the different genotypes of each sample). The values in the columns are the information for each sample and genotypic variant. The organization for the information in each cell of this sections is detailed in column nine, the FORMAT column, which contains the abbreviations that correspond to each number in each cell of the gt region. 
+
+The VCF file specification is flexible in that there are slots for certain types of data but a particular software isn't required to use all the slots when making the VCF file. Additionally, software and authors of software can include new forms of data in this file format that are not specified in the VCF specification. Therefore, not all VCF files contain the same information. 
+
+For the following examples, use the R package vcfR (Knaus and Grunwald, 2017). library() imports the package while data loads vcf, gff, and dna objects into memory. For this demonstration, we will only use the vcf object since it contains VCF data. 
+
+```{r import_and_read, warning=FALSE}
+library(vcfR)
+data(vcfR_example) # This loads vcf into memory, among some other datasets
+vcf
+```
+
+
+## The meta region
+
+As stated earlier, the meta region contains information about the file, its creation, and abbreviations used in other sections of the file. Each line begins with a '##'. For example, investigate the first seven lines of the vcf object's meta data (first seven lines of the file) - 
+
+```{r meta_region_raw}
+strwrap(vcf@meta[1:7])
+```
+
+The first line is required and states the version of the VCF file format used to create the file. The second specifies the software used to create the VCF file and is not strictly required but is absolutely encouraged for reproducible results. Note that the alignment software is not included since that was used upstream in the workflow. Some VCF files may contain a line for every chromosome (or supercontig or contig), so this section may become very long. In this example, the remaining lines in the meta region contain INFO and FORMAT specifications, which define the abbreviations used in the fixed and gt portions of the file. 
+
+To make it easier to view meta region lines, you can use the queryMETA(vcfR_object) function to present the metadata clearly and concisely.
+
+```{r query_meta}
+queryMETA(vcf)
+```
+
+When no additional arguments are specified, the vcfR object's meta data is concisely summarized by outputing the basic information (sort of like a header) for most lines. However, not all information is returned. For example, the VCF version and source are not returned, the contig elements were not returned in the above example. This function aims to just summarize the information that may be the most useful for comprehension of the file's contents. For more specific information about a given element, you can specify that element using the 'element' argument.
+
+```{r query_element}
+queryMETA(vcf, element = 'DP')
+```
+
+Note how in this example investigating DP, there are two queries returned - one for FORMAT and INFO lines. This can be further narrowed down by specifying more information in the element parameter.
+
+```{r query_element_specific}
+queryMETA(vcf, element = 'FORMAT=<ID=DP')
+```
+
+The function queryMETA() also includes a parameter 'nice' that tries to present the data in a nice format for easier reading. It is set to TRUE by default. To see the raw data, set nice = FALSE. The queryMETA() function queries the raw data (hence the '<' in the above query) but presents the data nicely when nice = TRUE.
+
+
+## The fix region
+
+Again, the fix region contains information about each genomic variant that is sometimes summarized over all samples. The first eight columns are as follows - 
+
+* CHROM - The chromosome where the variant is located.
+* POS - The position on the chromosome where the variant is located.
+* ID - The ID of the variant, if given.
+* REF - The reference allelic state for a diploid sample for that position.
+* ALT - The alternate allelic state(s) for a diploid sample for that position. When multiple alternative states are possible, they are separated by commas.
+* QUAL - The (attempted) summarized quality of each variant over all samples. 
+* FILTER - Information about whether a variant has passed some quality assessment. This field is not always used. 
+* INFO - Information about each genomic variant delimited by semicolons.
+
+getFIX() is a simple function to display the fixed region of a vcfR object in a nice format. It suppressed the INFO column by default because it can be long, cumbersome, and difficult to read.  Like the metadata section, the fixed region can also be queried using the element argument (not shown below). 
+
+```{r fixed_region}
+head(getFIX(vcf))
+```
+
+
+## The gt region
+
+The gt (genotype) region contains information about each sample's genotype for the variants. The values for each variant and sample are colon delimited, allowing for mutliple types of data for each genotype to be stored in each cell (and for easy parsing). The format of the data is specified in column nine, the FORMAT column. Again, the information for the acronyms used in the FORMAT column (here, GT, AD, DP, GQ, and PL) can be found in the metadata region. Not every variant may have the same information (e.g., SNPs and indels may be handled differently), so their formats may be different and are best handled independently. Different variant callers may include different information in the cells. 
+
+```{r gt_region}
+vcf@gt[1:6, 1:4]
+```
+
+Note that this method of showing the data shows the raw data.
+
+
+## vcfR 
+
+Using the vcfR package, we can read VCF format files into memory using the read.vcfR() function. Once in memory, head() can be used to summarize the information in each of the three VCF regions. 
+
+```{r read_VCF_file}
+vcf <- read.vcfR('Grunwald_workshop/pinfsc50_filtered.vcf.gz')
+# Now investigate its properties using head()
+head(vcf)
+```
+
+Once finished with manipulating the vcfR object, you can save the object in a new VCF file using write.vcf(). This will write to your active directory. 
+```{r write_vcf}
+write.vcf(vcf, 'processedVCFdata_filtered.vcf.gz')
+```
+
+
+## Exercises Part I
+
+1 - How can you find more information about read.vcfR()?
+
+You can use ?read.vcfR(), typed into the console, to read up on the documentation for this function, including its arguments, specific outputs, examples, and any other pertinent information. 
+```{r eval=FALSE}
+?read.vcfR()
+```
+
+
+2 - How would we leanr what the acronym 'AD' stands for?
+
+We would query the meta data using the queryMETA() function while specifying the 'AD' element - 
+
+```{r Ex_1.2}
+queryMETA(vcf, element = 'AD')
+```
+
+
+3 - We used the head() function to view the first few lines of the fix data. How can we view the last few lines of the fix data?
+```{r Ex_1.3}
+# With the INFO column - 
+tail(vcf@fix)
+# Without the INFO column - 
+tail(getFIX(vcf))
+```
+
+4 - There is a column in the fix portion of the data called QUAL. It isn't defined in the meta portion of the data because it is specified in the VCF file specification, and it stands for quality. Does QUAL appear to be useful to us? Why or why not?
+
+From the documentation for VCF version 4.1 (which the data set uses), QUAL is a Phred-scaled quality score for all samples for the alternate genotype at that variant's location. A Phred quality score measures the quality of the sequencing data based on the probability of an inaccurate base call by the Phred computer program at that location. This program uses metrics from the fluorescent trace data or electrochemistry data generated through DNA sequencing (such as the peak resolutions and shape for fluorescent trace data) and links them to known sequencing accuracy using previous sequencing data of sequences. The Phred quality score is often given on a log10 scale, so a Phred quality score of 30 (a common cutoff) would indicate a base call accuracy of 99.9% (1 in 1000 are incorrect calls). Therefore, high values indicate high confidence scores for quality of the sequencing data.
+
+To see if QUAL may be useful for this data set, first see how it varies across the genotypic variants. This can be done by simply plotting the QUAL data for all samples in a histogram. For more control of the formatting of the histogram, use ggplot2.
+
+```{r Ex_1.4, fig.width=6, fig.height=5}
+library(ggplot2)
+ # Bin width 30 since cutoff for Phred scores is typically 30
+qplot(getQUAL(vcf), geom = 'histogram', binwidth = 30)
+```
+
+Based on the histogram, it seems like a lot of data have low quality values, so these data could be filtered out to ensure that the results from analyzing the data are of high quality and more likely to be significant. Therefore, the QUAL data appear to be potentially useful for analysis. However, because the quality of reads is difficult to define using the Phred quality score and a lot of data would be removed by filtering using this metric, another metric may be more useful to keep more data for analysis while still keeping higher-quality data. For example, read depth could also be used to filter the data. 
+
+
+5 - How would we query the sample names?
+
+To find all names of the samples, we would use the colnames() function for the gt region. To then parse out the information for a specific sample (column), we would specify the sample name in square brackets since the gt data is in matrix format. To parse out a specific variant (row; e.g., SNP) for a sample, the particular variant's row number would first need to be determined in the fixed matrix and then used to specify the row number in the gt matrix.
+
+```{r Ex_1.5}
+# All sample names, plus the FORMAT column
+colnames(vcf@gt) # Note the gt region is specified since it contains info about samples
+# For a specific sample, subset just like a matrix using the sample name
+head(vcf@gt[,'P7722'])
+# For a specific sample and variant, specify both the sample (by name) and row (by number)
+# For example, extract the data for the 5th genotypic variant for sample P7722
+vcf@gt[5, 'P7722']
+```
+
+
+# Part II - Analysis of Genome Data
+
+## Introduction
+
+Analysis of population genome data can be analyzed using similar pipelines to other genome data analysis, just usually with larger data sets. For example, VCF data can be read in R using vcfR (Knaus and Grunwald, 2017), then converted from a vcfR object to a genlight object (Jombart, 2008), and finally converted into a snpclone object (kamvar, Tabima, and Grunwald, 2014) for analysis. 
+
+For this short tutorial, we will focus on converting the VCF file data into a few other R objects for different analysis once the VCF data is read into R. We will use the pinfsc50 dataset, which is a subset of data for hte supercontig_1.50 from a published genomics project for *P. infestans*. This smaller dataset shows some important strengths and weaknesses of these types of studies. A strength is the amount of data obtained for each individual, but a couple of weaknesses are the lack of control over the design of the experiment (the data are already collected) and the relatively small number of samples due to the high cost to obtain data for each sample. 
+
+## Opening and examining the dataset
+
+Like before, the VCF file data will be read into R using the read.vcfR() function from the vcfR package. The pinfsc50 data set was previously filtered for quality. Once the file is read into memory, we can validate it calling the object to show a summary of the object.
+
+```{r read_vcf, warning = FALSE}
+library(vcfR)
+library(adegenet)
+vcf <- read.vcfR("Grunwald_workshop/pinfsc50_filtered.vcf.gz")
+vcf
+```
+
+From the summary of the vcfR object, we can see that we have 18 samples and 2190 genomic variants. If this matches what we expect, then we can move on to the next steps. 
+
+## Converting VCF data to a genlight object
+
+Different packages use different data structures to hold the data imported into R, just like how different file formats hold data in different ways. The vcfR package provides a series of functions to convert the vcfR data structure to other data structures from various R packages typically used for genome analysis. One such common package is adegenet, which is popular for genetic analysis of populations. This package uses genlight data structures, which have key difference between vcfR structures (discussed below). The vcfR2genlight([vcfR_object]) function can quickly convert a vcfR object to a genlight object, allowing for analysis of the VCF data using the adegenet package. Convert the example VCF data to a genlight object for analysis.
+
+```{r convert_to_genlight}
+x <- vcfR2genlight(vcf)
+x
+```
+
+Note the warning about the omission of loci with more than two alleles. This is because the genlight object only supports biallelic variants (two alleles only). The loci with more than two alleles were discarded when the genlight object was created. 
+
+Another difference between vcfR and genlight objects is how the genotypes are stored. In the vcfR object, the alleles, denoted as 0 for reference or non-zero for alternate, are delimited by a pipe or forward slash. In the genlight object, they are simply recorded as 0, 1, or 2, since the loci are all biallelic. This number corresponds to the number of alleles that are different from the reference - 0 is homozygous with the reference, 1 is heterozygous, and 2 is homozygous with the alternate. To validate this structure, view a few genotypes from the vcfR and genlight objects 
+
+```{r allele_differences}
+gt <- extract.gt(vcf, element = 'GT') # This extract the allelic info from vcfR objects
+gt[c(2, 6, 18), 1:3] # Loci were chosen to show all different possible allelic combos
+# genlight
+t(as.matrix(x))[c(1,5,17), 1:3]
+```
+
+The code above points out another difference between vcfR and genlight objects. Data in vcfR objects are stored with the samples in columns and the genetic variants in rows. Alternatively, data in genlight objects are stored with the variants in columns and the samples in rows. To convert between the different states, use the transpose function, t().
+
+Another key difference between the vcfR and genlight objects is the concept of a population between the samples. genlight objects were designed specifically for the analysis of population data, so the samples can be clustered together based on the population they are a part of and, thus, the genlight object has a position to hold this information. In vcfR objects, there is no such data, so it must be added manually to the genlight object if created from a vcfR object. 
+
+The populations can be added manually by supplying a vector of factors to the pop([genlight_object]) function. The vector should be the same length as the number of samples, and each element should correspond to the population that the sample in the corresponding position belongs to. Recall that the as.factor() function makes the vector a vector of factors and that the factors with the same name are understood to belong to the same population. Finally, you can check the different populations in the genlight object using popNames(). 
+
+```{r add_pop_genlight}
+pop(x) <- as.factor(c('us', 'eu', 'us', 'af', 'eu', 'us', 'mx', 'eu', 'eu',
+                      'sa', 'mx', 'sa', 'us', 'sa', 'Pmir', 'us', 'eu', 'eu'))
+popNames(x)
+```
+
+Finally, another major difference between vcfR and genlight objects is the concept of ploidy (the number of copies of that loci in the genome). In vcfR objects (and VCF data in general), each variant is treated independently, so each can have a different ploidy. In genlight objects, however, each sample can have a different ploidy, but all loci in a given samples must have the same ploidy level. To set the ploidy level of all samples in a genlight object, use ploidy().
+
+```{r set_ploidy}
+ploidy(x) <- 2
+```
+
+
+## Distance matrices
+
+A pairwise genetic distance matrix between individuals or populations (as in, pairwise between all individuals/populations) can provide insight into relations between individuals/populations and perhaps their evolutionary history. 
+
+A distance matrix can easily be created from a genlight object using the dist() function, which is a base stat function to find Euclidean distance between all combinations in a matrix. More information about this function can be found using ?dist().
+
+```{r distance_matrix_genlight}
+x.dist <- dist(x)
+x.dist
+```
+
+Note how the genlight object didn't need to be further manipulated to create the distance matrix (as in, no columns or rows had to be specified or function called). 
+
+There are also functions available in other packages to create distance matrices from genlight objects, such as the bitwise.dist() function from poppr. As with the dist() function, more information about this function can be found using ?poppr::bitwise.dist(). 
+
+```{r poppr_dist_matrix_genlight}
+x.dist <- poppr::bitwise.dist(x)
+x.dist # Note the different values from the analysis due to a different algorithm
+```
+
+Once again, no additional manipulation of the genlight object had to be performed to make the distance matrix. For other functions, most distance algorithms take a matrix as input to create a distance matrix, so you can use as.matrix() on the genlight object as an intermediate step for these other functions to create the resulting distance matrix output. Other algorithms include ade4, vegdist() from the vegan package, or daisy() from the cluster package. You must determine which distance metric is best for your analysis.
+
+
+# chromR objects
+
+## Using chromR to locate unusual features in a genome 
+
+Genomic projects usually use several types and forms of data, such as FASTA sequences for reference genomes, VCF files for genotypic variants, and BED tables for annotations. Genome browsers are often used to integrate these different data types into a single data structure for analysis and visualization. HOwever, these genome browsers typically don't allow for manipulation of the data, instead only displaying the files. R allows for extensive manipulation of data, including statistical support for general analysis and genetics and genomics analyses. vcfR in particular allows manipulation of VCF data and includes a simple genome browser to visualize the effects of manipulations. Here, we show how vcfR can be used to survey genomic data for interesting features.
+
+## Creating chromR objects
+
+For this example, start by locating and reading the example data from the pinfsc50 package.
+
+```{r read_example_data}
+# Find the files 
+vcf_file <- system.file('extdata', 'pinf_sc50.vcf.gz', package = 'pinfsc50')
+dna_file <- system.file('extdata', 'pinf_sc50.fasta', package = 'pinfsc50')
+gff_file <- system.file('extdata', 'pinf_sc50.gff', package = 'pinfsc50')
+
+# Read the files to memory 
+vcf <- read.vcfR(vcf_file, verbose = FALSE)
+dna <- ape::read.dna(dna_file, format = 'fasta')
+gff <- read.table(gff_file, sep = '\t', quote = '')
+
+# Create a chromR object 
+chrom <- create.chromR(name = "Supercontig", vcf = vcf, seq = dna, ann = gff, 
+                       verbose = TRUE)
+```
+
+Notice the warning message when creating the object, stating that the names between the different data files don't match perfectly. Based on the author's experience, this occurs relatively often in genome projects, and instead of asking the user to create duplicate files with standard names, vcfR allows the user to use judgment and decide whether the data are accurate or not before proceeding. In this example, we see that the names of the annoation/vcf data and sequences data are essentially the same, with the sequences data only containing slightly more specific information about the species source for the data. Because we know the names are synonymous, we can safely continue with analysis. 
+
+Once we have created the chromR object, we can verify that the contents are what we expect by calling the object to show a summary of the object's contents (via the implicit show method of the object).
+
+```{r show_chromR}
+chrom
+```
+
+For more details about the contents, you can graphically view the chromR object using two methods. The first is a simple plot() of the chromR object to show histograms of some of the major data summaries. 
+
+```{r histograms_chromR, fig.height=7, fig.width=9}
+plot(chrom)
+```
+
+From this, we can get an idea of the contents of the chromR object. The read depths shown is a sum over all samples. Low sequence depth in some regions may indicate genetypic variants where there may not be enough information to call a genotype. At the other extreme, high sequence depth may indicate repetitive regions in the genome where the reference genome does not have all the copies, so the reads keep mapping to that one/few location(s) in the reference genome. These regions may violate ploidy assumptions made by the variant caller software and, thus, may need to be filtered out for quality control.
+
+Mapping quality is peaked at 60 for many genotypic variants, but other variants deviate from this value.
+
+Quality (the QUAL data) is more difficult to interpret. From the histogram, it appears that most genotypic variatns have low quality, and very few have high quality. Although high quality is desired, remember that quality is often difficult to measure. Based on the histogram, QUAL may be a poor parameter to use for quality control of the variants.
+
+The last panel, SNP densities, is empty because the chromR object hasn't been processed yet. This will be discussed below.
+
+THe second way to visually summarize the chromR object is to use chromoqc(), which displays the same information as plot() except incorporating the annotation data to map the summary data over the genome location (e.g., chromosomal coordinates). These plots can be somewhat more flexible depending on the data in the chromR object.
+
+```{r chromoqc_plot, fig.height=7, fig.width=9}
+chromoqc(chrom, dp.alpha = 66)
+```
+
+
+## Processing chromR objects
+
+Creating and processing chromR objects was intentionally separated into two different tasks. Creation loads the data into memory as a chromR object and is typically only required once. Processing generates summaries of the data and can be re-run once a chromR object is updated (e.g., by changing the size of the sliding window for analysis). In splitting up these processes, the data can be manipulated and reanalyzed without needing to reread the data to memory. For example, process the example chromR object as raw data (as it was loaded into memory).
+
+```{r process_chromR, fig.height=7, fig.width=9}
+chrom <- proc.chromR(chrom, verbose = TRUE)
+plot(chrom)
+```
+
+Now that the chromR object has been processed, we can see the SNP variant density histogram. All other plots are the same since the data plotted are raw data (no quality control applied yet). Now, inspect the object with chromoqc().
+
+```{r process_chromR_chromoqc, fig.height=7, fig.width=9}
+chromoqc(chrom, dp.alpha = 66)
+```
+
+From these plots, we can see that read depth, mapping quality, and Phred-scaled quality are all the same, but now there are additional plots for the variants per site (variant density), nucleotide content, and where in the reference there are nucleotides or where we have ambiguous nucleotides. 
+
+Now that we have looked at raw data that comes directly from a variant caller and other automated software, we will now apply a filter for quality control to see how the data change. In another section of this workshop, methods for quality control were presented to filter variants using different parameters to try and remove variants with low quality (see the appropriate sections for these methods). We will now apply these methods to the chromR object and compare the results to the above data. 
+
+```{r filtered_process_chromR, fig.height=7, fig.width=9}
+vcf <- read.vcfR('Grunwald_workshop/pinfsc50_filtered.vcf.gz', verbose = FALSE) # Using the filtered data set
+chrom <- create.chromR(name = 'Supercontig', vcf = vcf, seq = dna, ann = gff,
+                       verbose = FALSE)
+chrom <- proc.chromR(chrom, verbose = FALSE)
+chromoqc(chrom, dp.alpha = 66)
+```
+
+We now have a smaller amount but hopefully higher quality data after filtering for quality control, and we now have some apparent improvements. The read depth is now relatively uniform. Applying the quality control filtering allowed the data to approach our assumption that the sequence depth for all regions in the genome would be approximately the same. Second, the mapping quality seems to be relatively constant, and the genotypic variants with low mapping quality have been removed. If we decide that mapping quality is a good metric for quality control, this is certainly an improvement. Based on the author's experience, these are good quality controls to apply to improve the datasets before more analysis. 
+
+
+## Tabular summaries
+
+When a chromR object is processed, two forms of tabular data are created. The first is a summary table made on a per genotypic variant basis, including sample size (excluding missing data), allele counts, heterozygosity, and effective size. The second is a summary table made on a per window basis (i.e., nucleotide window in the genome). These window summaries include nucleotide content per window (including missing data), number of genic sites per window (when annotation data is provided), and number of variants per window.
+
+```{r table_summaries}
+head(chrom@var.info) # Table for variants 
+head(chrom@win.info) # Table for window
+```
+
+When loading entire genomes (especially from many different samples) into memory isn't practical due to resource limitation, it is usually practical to break up the genome(s) into parts for processing with the resources available on your machine. The tabular data from processing the parts can be saved to a file so you can perform genome scans piece-by-piece to try and find interesting features. 
+
+
+## Genetic differentiation
+
+Some of the most fundamental questions in population studies is whether populations are diverse and whether that diversity exists within populations and/or shared among populations. To investigate genetic diversity within and between populations, typically the heterozygosity is reported. This is the probability that two alleles randomly chosen from a population will be different (Nei, 1973). In ecology, this is known as the Simpson's Index (Simpson, 1949). To investigate differentiation, typically the F_ST or on os its analogues is used. This was originally proposed by Sewall Wright (Wright 1949) and later extended to incorporate diversity by Masatoshi Nei (Nei 1973). As the number of alleles investigated increased, further corrections were made to the method by Philip Hedrick (Hedrick 2005), and Lou Jost more recently proposed another alternative method (Jost 2008). There are many other variants that can be reported and investigated - see the blog titled "Should I use F_ST, G_ST, or D?" for a discussion on which metric may be appropriate for your data.
+
+In vcfR, the genetic_diff() function measures population diversity and differentiation. Because vcfR objects (and the VCF data format) doesn't include population information, it must be supplied as a factor vector to the function (like to the genlight object) to calculated population diversity and differentiation. There are different methods available to calculate the diveristy and differentiation - we will use the Hedrick methods here by specifying 'nei' (Hedrick, 2005). For this method, the heterozygosities are weighted by the number of alleles observed in each population. This was inspired by the hierfstat::pairwise.fst() function, which uses the number of individuals observed in each population to weight the heterozygosities. Instead of using the number of individuals, however, this uses the total number of alleles observed, removing an assumption about the number of alleles an individual may contribute and allowing for samples with mixed ploidy.
+
+```{r genetic_diff_function}
+# Library is already loaded
+data(vcfR_example)
+pop <- as.factor(c('us', 'eu', 'us', 'af', 'eu', 'us', 'mx', 'eu', 'eu',
+                   'sa', 'mx', 'sa', 'us', 'sa', 'Pmir', 'us', 'eu', 'eu'))
+myDiff <- genetic_diff(vcf, pops = pop, method = 'nei')
+# Display part of the results to get an idea of what they look like
+knitr::kable(head(myDiff[, 1:15])) 
+```
+
+The function returns the chromosome and position of each genotypic variant from the VCF data along with their corresponding heterozygosities for each population and total, followed by the number of alleles seen in each population. Note that poulations with zero alleles observed have heterozygosities reported at 'NaN', for 'Not a Number', because no data is present for analysis. 
+
+```{r genetic_diff_differentiation}
+knitr::kable(head(myDiff[,16:19]))
+```
+
+The last columns in the results table contain G_ST (a measurement of population differentiation), the maximum heterozygosity, the maximum G_ST, and G'_ST (a measurement of population differentiation that takes into account different number of alleles present in the population). Typically, only G'_ST is reported - G_ST, the maximum heterozygosity, and G_ST,max are intermediate values for G'_ST and are given in the table to ensure the G'_ST was calculated correctly. Note that for populations with zero alleles, the G_ST calculated must be NaN since the heterozygosity is also NaN. To avoid this during analysis, you may want to omit populations with small sample size or that contain a large amount of missing data. 
+
+There are a few ways to summarize all these data. One is to take the averages of all the data. 
+
+```{r summarize_avg}
+# Summarize the means for the select column, removing NA and NaN values if present
+knitr::kable(round(colMeans(myDiff[,c(3:9,16,19)], na.rm = TRUE), digits = 3))
+```
+
+Another way is to use violin plots, which plots the distribution of each metric in a cool shape along the vertical axis. Sometimes, the shape looks like a violin, hence the name. 
+
+```{r violin_plot, fig.height=5, fig.width=7}
+library(reshape2)
+# ggplot2 is already loaded into the environment
+# Again, plot select statistics from the results table and remove missing data
+dpf <- melt(myDiff[,c(3:8, 19)], varnames = c('Index', 'Sample'), value.name = 'Depth',
+            na.rm = TRUE)
+p <- ggplot(dpf, aes(x = variable, y = Depth)) +
+  geom_violin(fill = '#2ca25f', adjust = 1.2) +
+  xlab('') +
+  ylab('') +
+  theme_bw()
+p
+```
+
+
+# Exercises Part II
+
+1 - You now have everything you need to make a Manhattan plot. Can you figure out how to plot G'_ST vs genomic position (which is a Manhattan plot)?
+
+```{r Ex_2.1, fig.height=5, fig.width=7}
+# Determine the names of the columns in the results data frame 
+head(myDiff)
+tail(myDiff) # Max position is 99989
+# Make a break for every 10,000 bp (10 kbp)
+my_breaks <- seq(0, 100, by = 10)
+# Need POS on the x axis, Gprimest on the y axis
+man_plot <- ggplot(myDiff, aes(x = as.numeric(POS)/1000, y = Gprimest)) +
+  geom_point(color = 'purple', alpha = 0.5) +
+  scale_x_continuous(breaks = my_breaks) +
+  labs(x = 'Genomic position (kbp)', y = "G'_ST",
+       title = "Manhattan plot of Supercontig_1.50") + 
+  theme_classic() +
+  theme(plot.title = element_text(face = 'bold', hjust = 0.5)) 
+man_plot
+```
+
+2 - This Manhattan plot looks unusual (far too many variants are mapping to certain values, such as 1.0 and 0.5). Can you think of anything that may be wrong with the analysis of these data?
+
+For good population studies, there need to be enough individuals in each population for an accurate representation of each population and enough alleles present for the genotypic variants so that diversity and differentiation calculations can be more accurately calculated . However, looking at the number of individuals in each population for this example data, there are far too few members in each population for accurate representation, causing the data to look oddly clumpy.
+
+```{r Ex_2.2}
+table(pop)
+```
+
+3 - Can you figure out how to zoom in on a particular region of a chromosome in chromoqc()?
+
+```{r Ex_2.3, fig.height=7, fig.width=9}
+# First look at documentation to determine the argument(s) to change the x-axis limits
+# ?chromoqc()
+# Based on documentation, use xlim (supplied as a vector for position) to define window
+chromoqc(chrom, dp.alpha = 66, xlim = c(100000, 200000))
+```
+
+4 - Can you use the function queryMETA() to look for other data in your file that may be of interest?
+
+```{r Ex_2.4}
+queryMETA(vcf)
+# Look at a few of the data types in more detail to see if any are of interest
+# I already know DP is depth and GT is genotype
+queryMETA(vcf, element = 'FORMAT=<ID=GQ') # Genotype quality
+queryMETA(vcf, element = 'FORMAT=<ID=AD') # Allelic depths
+queryMETA(vcf, element = 'FORMAT=<ID=PL') # Phred-scaled likelihoods for genotypes
+queryMETA(vcf, element = 'INFO=<ID=ClippingRankSum') # A Z-score for Wilcoxon rank sum test
+queryMETA(vcf, element = 'INFO=<ID=MQ') # A different Z-score for a Wilcoxon rank sum test
+queryMETA(vcf, element = 'INFO=<ID=MLEAF') # Maximum likelihood expectation for allele freq.
+```
+
+It appears as though there are a lot of other data in the file that may be of interest, including GT (genotype quality) and AD (allelic depths). Additionally, based on the INFO fields in the metadata, it appears as though there are a lot of statistical tests for these data that may be interesting to explore. They could be extracted for each variant from the INFO column (8th column) in the 'fix' section of the vcfR object, after determining the order of the data in this section.
+
+
+# References
+
+Again, see the Grunwald Lab's R workshop/primer called "Population genetics and genomics in R" (@Grunwald_pop_genomics_workshop) for full citations for all references in this tutorial. 
