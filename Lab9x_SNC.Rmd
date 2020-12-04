@@ -2,7 +2,10 @@
 title: "Lab9x_SNC"
 author: "Stephanie Call"
 date: "10/30/2020"
-output: html_document
+output: 
+  prettydoc::html_pretty:
+      theme: tactile
+      highlight: github
 bibliography: data/references.bib
 ---
 
