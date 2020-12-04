@@ -1,0 +1,53 @@
+---
+title: "Lab13_SNC"
+author: "Stephanie Call"
+date: "11/30/2020"
+output: 
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+bibliography: data/references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# The prettydoc Package for Lightweight RMarkdown Themes
+
+The prettydoc package (@prettydoc_package) creates HTML themes for RMarkdown documents to create nice-looking HTML documents while keeping the files size relatively small compared to a full Bootstrap theme documents created using the html_document engine. This is done simply by adding the html_pretty engine from prettydoc with some customization options to the yaml block of the RMarkdown file, such as the following example - 
+
+```r 
+---
+title: "Lab13_SNC"
+author: "Stephanie Call"
+date: "11/30/2020"
+output: 
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: github
+bibliography: data/references.bib
+---
+```
+
+Additionally, themes can be chosen when creating an RMarkdown file by choosing the 'From Template' option and picking one of the built-in templates from prettydoc.
+
+
+## Options and Themes for prettydoc
+
+The html_pretty engine from prettydoc is mostly compatible with the default html_document engine for RMarkdown but with a number of exceptions - 
+
+1. There are only five themes currently available (more will be added in the future) - cayman, tactile, architect, leonids, and hpstr. See the documentation page for examples of these themes.
+
+2. There are only two highlight options for highlighting syntax - github and vignette.
+
+3. The math parameter, for displaying math expressions in a nice format, can only be either mathjax or katex. katex supports offline display (doesn't require an internet connection). 
+
+4. The options for code_folding, code_download, and toc_float are not available.
+
+
+# Creating a Simple Website with RMarkdown
+
+The "How to Create a Website using R Markdown" tutorial (@rmarkdown_website) tutorial was followed to create another simple RMarkdown website. This new website includes a short introduction page, a much longer 'About Me' page, and a page that describes and links to the repository website made for this class. Here is the link - https://stephaniecall.github.io/MyWebsite/index.html.
+
+# References
