@@ -1,7 +1,10 @@
 ---
 title: "Stephanie's GitHub Page for Evolutionary Genomics and Bioinformatics"
 author: "Stephanie Call"
-output: html_document
+output: 
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
 bibliography: data/references.bib
 ---
 
@@ -19,22 +22,24 @@ Website repository for my lab reports and other files for the Evolutionary Genom
 
 
 ## Lab Reports
-* Lab 1: [Lab 1](Lab1_SNC.html)
-* Lab 2: [Lab 2](Lab2_SNC.html)
-* Lab 3a: [Lab 3a](Lab3a_SNC.html)
-* Lab 3b: [Lab 3b](Lab3b_SNC.html)
-* Lab 4-COVID: [Lab 4-COVID](Lab4_COVID_SNC.html)
-* Lab 4-tutorial: [Lab 4-tutorial](Lab4_ggplot_tutorial_SNC.html)
-* Lab 5-COVID: [Lab 5-COVID](Lab5_COVID_SNC.html)
-* Lab 5-extra: [Lab 5-extra](Lab5_extra_SNC.html)
-* Lab 6: [Lab 6](Lab6_SNC.html)
-* Lab 7: [Lab 7](Lab7_SNC.html)
-* Lab 8: [Lab 8](Lab8_SNC.html)
-* Lab 9: [Lab 9](Lab9_SNC.html)
-* Lab 9-extra: [Lab 9x](Lab9x_SNC.html)
-* Lab 10: [Lab 10](Lab10_SNC.html)
-* Lab 11: [Lab 11](Lab11_SNC.html)
-* Lab 11x: [Lab 11x](Lab11x_SNC.html)
+* Lab 1 - [Introduction to R and Reproducible Research](Lab1_SNC.html)
+* Lab 2 - [git, GitHub, and RStudio projects](Lab2_SNC.html)
+* Lab 3a - [Data Carpentry Data Wrangling Tutorial part 1](Lab3a_SNC.html)
+* Lab 3b - [Data Carpentry Data Wrangling Tutorial part 2](Lab3b_SNC.html)
+* Lab 4a - [Data Wrangling and Graphing COVID-19 Reporting Data part 1 ](Lab4_COVID_SNC.html)
+* Lab 4b - [Data Carpentry ggplot2 Tutorial](Lab4_ggplot_tutorial_SNC.html)
+* Lab 5 - [Data Wrangling and Graphing COVID-19 Reporting Data part 2](Lab5_COVID_SNC.html)
+* Lab 5x - [Interactive Graphs and Animations](Lab5_extra_SNC.html)
+* Lab 6 - [Mapping COVID-19 Reporting Data](Lab6_SNC.html)
+* Lab 7 - [RNA-seq Workflow](Lab7_SNC.html)
+* Lab 8 - [Sequence Alignment, Phylogenetic Analysis, and Tree Visualization and Tree Visualization with ggtree](Lab8_SNC.html)
+* Lab 9 - [Programming in R - Regular Expressions](Lab9_SNC.html)
+* Lab 9x - [Programming in R - Control Structures and Functions](Lab9x_SNC.html)
+* Lab 10 - [Populatino Genomics Based on High-Throughput Sequencing (HTS)](Lab10_SNC.html)
+* Lab 11 - [Microbiome Analysis using DADA2](Lab11_SNC.html)
+* Lab 11x - [Microbiome Analysis using phyloseq](Lab11x_SNC.html)
+* Lab 12 - [Network Analysis using Cytoscape and RCy3](Lab12_SNC.html)
+* Lab 13 - [Prettying up our GitHub Sites](Lab13_SNC.html)
 
 All lab reports are written in R [@RCoreTeam].
 
