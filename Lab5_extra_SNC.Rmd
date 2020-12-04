@@ -301,6 +301,7 @@ plot_top10_confirmed_states <- ggplot(time_series_confirmed_top10_states, aes(x 
   shadow_trail()
 animate(plot_top10_confirmed_states, renderer = gifski_renderer(), end_pause = 20)
 ```
+
 From this, you can see how the states with the highest number of confirmed cases
 have only recently taken the lead due to a massive spike in the number of cases
 over the summer (California, Texas, Florida). You can also see how the cases continue
